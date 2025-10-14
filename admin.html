@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <h1>Admin Panel</h1>
+
+  <!-- Add Course -->
+  <h2>Add New Course</h2>
+  <input type="text" id="newCourseName" placeholder="Enter course name">
+  <button class="btn" onclick="addCourse()">Add Course</button>
+
+  <hr>
+
+  <!-- Upload File -->
+  <h2>Upload File</h2>
+  <select id="courseSelect"></select><br>
+  <input type="text" id="fileTitle" placeholder="File title"><br>
+  <input type="text" id="fileURL" placeholder="File URL (optional)">
+  <input type="file" id="fileUpload"><br>
+  <button class="btn" onclick="uploadFile()">Upload File</button>
+
+  <hr>
+
+  <h2>Courses & Files</h2>
+  <ul id="courseList"></ul>
+</div>
+
+<script>
+let courses = [];
+
+// Load courses for dropdown and list
+async function loadCourses(){
+    try {
+        const res = await fetch('http://localhost:3000/courses');
+        courses = await res.json();
+
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = '<option value="">Select course</option>';
+        const list = document.getElementById('courseList');
+        list.innerHTML = '';
+
+        if(courses.length === 0){
+            list.innerHTML = '<li>No courses available</li>';
+            return;
+        }
+
+        courses.forEach(c => {
+            // Dropdown
+            const opt = document.createElement('option');
+            opt.value = c.name;
+            opt.textContent = c.name;
+            courseSelect.appendChild(opt);
+
+            // List courses and files
+            const li = document.createElement('li');
+            li.style.border = '1px solid #334155';
+            li.style.borderRadius = '8px';
+            li.style.padding = '10px';
+            li.style.marginBottom = '10px';
+            li.style.background = '#1e293b';
+
+            const title = document.createElement('h4');
+            title.innerText = c.name;
+            li.appendChild(title);
+
+            // Delete course button
+            const delCourse = document.createElement('button');
+            delCourse.innerText = 'Delete Course';
+            delCourse.classList.add('btn');
+            delCourse.onclick = () => deleteCourse(c._id);
+            li.appendChild(delCourse);
+
+            // Fetch files for this course
+            const fileDiv = document.createElement('div');
+            fileDiv.style.marginTop = '8px';
+            fetch(`http://localhost:3000/files/${encodeURIComponent(c.name)}`)
+            .then(res => res.json())
+            .then(fs => {
+                fs.forEach(f => {
+                    const fDiv = document.createElement('div');
+                    fDiv.style.marginBottom = '6px';
+                    fDiv.style.border = '1px solid #334155';
+                    fDiv.style.borderRadius = '6px';
+                    fDiv.style.padding = '6px';
+                    fDiv.style.background = '#0f172a';
+                    fDiv.innerHTML = `<strong>${f.title}</strong>`;
+
+                    const delFile = document.createElement('button');
+                    delFile.innerText = 'Delete File';
+                    delFile.classList.add('btn');
+                    delFile.style.fontSize = '12px';
+                    delFile.onclick = () => deleteFile(f._id);
+                    fDiv.appendChild(delFile);
+
+                    fileDiv.appendChild(fDiv);
+                });
+            });
+
+            li.appendChild(fileDiv);
+            list.appendChild(li);
+        });
+
+    } catch(err){
+        console.error(err);
+        document.getElementById('courseList').innerHTML = '<li>Error loading courses</li>';
+    }
+}
+
+// Add new course
+async function addCourse(){
+    const name = document.getElementById('newCourseName').value.trim();
+    if(!name) return alert('Enter course name');
+
+    await fetch('http://localhost:3000/admin/add-course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+    });
+
+    document.getElementById('newCourseName').value = '';
+    loadCourses();
+}
+
+// Upload file (URL or local)
+async function uploadFile(){
+    const course = document.getElementById('courseSelect').value;
+    const title = document.getElementById('fileTitle').value.trim();
+    const url = document.getElementById('fileURL').value.trim();
+    const file = document.getElementById('fileUpload').files[0];
+
+    if(!course || !title || (!url && !file)) return alert('Fill all fields');
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('course', course);
+    if(url) formData.append('url', url);
+    if(file) formData.append('file', file);
+
+    await fetch(url ? 'http://localhost:3000/admin/add-file' : 'http://localhost:3000/admin/upload-file', {
+        method: 'POST',
+        body: formData
+    });
+
+    document.getElementById('fileTitle').value = '';
+    document.getElementById('fileURL').value = '';
+    document.getElementById('fileUpload').value = '';
+    loadCourses();
+}
+
+// Delete course
+async function deleteCourse(courseId){
+    if(!confirm('Are you sure you want to delete this course and all its files?')) return;
+
+    await fetch(`http://localhost:3000/admin/delete-course/${courseId}`, { method: 'DELETE' });
+    loadCourses();
+}
+
+// Delete file
+async function deleteFile(fileId){
+    if(!confirm('Are you sure you want to delete this file?')) return;
+
+    await fetch(`http://localhost:3000/admin/delete-file/${fileId}`, { method: 'DELETE' });
+    loadCourses();
+}
+
+// Initial load
+loadCourses();
+</script>
+</body>
+</html>
