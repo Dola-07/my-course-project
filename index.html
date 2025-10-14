@@ -4,15 +4,14 @@
 <meta charset="UTF-8">
 <title>Course Portal</title>
 <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
+<div class="container">
 <h1>Welcome to Course Portal</h1>
 
-<!-- Admin Login Button -->
+<!-- Admin Login -->
 <button onclick="showAdminLogin()">Admin Panel</button>
-
-<div id="adminLogin" style="display:none; margin-top:20px;">
+<div id="adminLogin" style="display:none; margin-top:10px;">
     <input type="password" id="adminPassword" placeholder="Enter admin password">
     <button onclick="checkAdminPassword()">Enter</button>
 </div>
@@ -20,21 +19,17 @@
 <hr>
 
 <h2>Available Courses</h2>
-
-<!-- Search box for courses -->
 <input type="text" id="courseSearch" placeholder="Search courses">
-
 <ul id="courseList"></ul>
+</div>
 
 <script>
 const courseList = document.getElementById('courseList');
 
-// Show admin login
 function showAdminLogin(){
     document.getElementById('adminLogin').style.display = 'block';
 }
 
-// Check admin password
 function checkAdminPassword(){
     const pw = document.getElementById('adminPassword').value;
     if(pw === '12345'){
@@ -44,12 +39,11 @@ function checkAdminPassword(){
     }
 }
 
-// Load courses on page load
+// Load courses
 async function loadCourses(){
     try {
         const res = await fetch('http://localhost:3000/courses');
         const courses = await res.json();
-
         courseList.innerHTML = '';
 
         if(courses.length === 0){
@@ -64,13 +58,14 @@ async function loadCourses(){
             li.onclick = () => window.location.href = `course.html?course=${encodeURIComponent(c.name)}`;
             courseList.appendChild(li);
         });
+
     } catch(err){
         console.error(err);
         courseList.innerHTML = '<li>Error loading courses</li>';
     }
 }
 
-// Filter courses dynamically
+// Filter courses
 document.getElementById('courseSearch').addEventListener('keyup', () => {
     const filter = document.getElementById('courseSearch').value.toLowerCase();
     document.querySelectorAll('#courseList li').forEach(li => {

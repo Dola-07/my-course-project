@@ -14,10 +14,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // serve u
 // ----------------------
 // MongoDB Connection
 // ----------------------
-mongoose.connect('mongodb://127.0.0.1:27017/courseDB', { 
-    useNewUrlParser: true, 
-    useUnifiedTopology: true 
-})
+const mongoURL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/courseDB';
+mongoose.connect(mongoURL, { useNewUrlParser: true, useUnifiedTopology: true })
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
@@ -141,8 +139,29 @@ app.delete('/admin/delete-file/:id', async (req, res) => {
     }
 });
 
+// Admin: Delete a course along with its files
+app.delete('/admin/delete-course/:id', async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.status(404).json({ message: 'Course not found' });
+
+        // Delete all files associated with the course
+        const files = await File.find({ course: course.name });
+        for (const file of files) {
+            if(file.url.startsWith('uploads/')) fs.unlinkSync(file.url);
+            await file.deleteOne();
+        }
+
+        await course.deleteOne();
+        res.json({ message: 'Course and its files deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error deleting course' });
+    }
+});
+
 // ----------------------
 // Start server
 // ----------------------
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
