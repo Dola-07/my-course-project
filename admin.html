@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <title>Admin Panel</title>
 <link rel="stylesheet" href="style.css">
+<style>
+    /* Simple styling for search inputs */
+    .search-box {
+        margin: 10px 0;
+    }
+    input[type="text"] {
+        padding: 5px;
+        width: 200px;
+        margin-right: 5px;
+    }
+    button {
+        padding: 5px 10px;
+        margin-left: 5px;
+    }
+</style>
 </head>
 <body>
 <div class="container">
@@ -22,6 +37,9 @@
 <button onclick="uploadFile()">Upload from Laptop</button>
 
 <h2>Existing Courses</h2>
+<div class="search-box">
+    <input type="text" id="courseSearch" placeholder="Search Courses..." oninput="filterCourses()">
+</div>
 <ul id="adminCourseList"></ul>
 
 </div>
@@ -30,51 +48,77 @@
 const courseSelect = document.getElementById('courseSelect');
 const adminCourseList = document.getElementById('adminCourseList');
 const apiBase = 'http://localhost:3000'; // change if using deployment URL
+let allCourses = [];
 
 // Load courses for dropdown & admin list
 async function loadCourses(){
     try{
         const res = await fetch(`${apiBase}/courses`);
         const courses = await res.json();
+        allCourses = courses; // store for search/filter
 
+        renderCourses(courses);
+
+        // Populate dropdown
         courseSelect.innerHTML = '';
-        adminCourseList.innerHTML = '';
-
         courses.forEach(c => {
-            // Dropdown
             const option = document.createElement('option');
             option.value = c.name;
             option.textContent = c.name;
             courseSelect.appendChild(option);
-
-            // Admin list with delete button
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <strong>${c.name}</strong> 
-                <button onclick="deleteCourse('${c._id}')">Delete Course</button>
-                <button onclick="toggleFiles('${c.name}', '${c._id}')">View Files</button>
-                <ul id="files-${c._id}" style="margin-left:20px;"></ul>
-            `;
-            adminCourseList.appendChild(li);
         });
 
     }catch(err){ console.error(err); }
 }
 
+// Render courses list with files
+function renderCourses(courses){
+    adminCourseList.innerHTML = '';
+    courses.forEach(c => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <strong>${c.name}</strong> 
+            <button onclick="deleteCourse('${c._id}')">Delete Course</button>
+            <button onclick="toggleFiles('${c.name}', '${c._id}')">View Files</button>
+            <div class="search-box" id="fileSearchBox-${c._id}" style="display:none;">
+                <input type="text" placeholder="Search Files..." oninput="filterFiles('${c._id}')">
+            </div>
+            <ul id="files-${c._id}" style="margin-left:20px;"></ul>
+        `;
+        adminCourseList.appendChild(li);
+    });
+}
+
+// Filter courses based on search input
+function filterCourses(){
+    const query = document.getElementById('courseSearch').value.toLowerCase();
+    const filtered = allCourses.filter(c => c.name.toLowerCase().includes(query));
+    renderCourses(filtered);
+}
+
 // Toggle files list
 async function toggleFiles(courseName, courseId){
     const ul = document.getElementById(`files-${courseId}`);
+    const searchBox = document.getElementById(`fileSearchBox-${courseId}`);
     if(ul.style.display === 'block'){
         ul.style.display = 'none';
+        searchBox.style.display = 'none';
         return;
     }
     ul.style.display = 'block';
+    searchBox.style.display = 'block';
 
     // Fetch files
     const res = await fetch(`${apiBase}/files/${courseName}`);
     const files = await res.json();
-    ul.innerHTML = '';
+    ul.dataset.files = JSON.stringify(files); // store original files for search
+    renderFiles(courseId, files);
+}
 
+// Render files for a course
+function renderFiles(courseId, files){
+    const ul = document.getElementById(`files-${courseId}`);
+    ul.innerHTML = '';
     files.forEach(f => {
         const li = document.createElement('li');
         li.innerHTML = `
@@ -84,6 +128,14 @@ async function toggleFiles(courseName, courseId){
         `;
         ul.appendChild(li);
     });
+}
+
+// Filter files inside a course
+function filterFiles(courseId){
+    const query = document.querySelector(`#fileSearchBox-${courseId} input`).value.toLowerCase();
+    const files = JSON.parse(document.getElementById(`files-${courseId}`).dataset.files || '[]');
+    const filtered = files.filter(f => f.title.toLowerCase().includes(query));
+    renderFiles(courseId, filtered);
 }
 
 // Delete individual file
@@ -156,3 +208,4 @@ loadCourses();
 </script>
 </body>
 </html>
+
