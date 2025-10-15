@@ -5,19 +5,12 @@
 <title>Admin Panel</title>
 <link rel="stylesheet" href="style.css">
 <style>
-    /* Simple styling for search inputs */
-    .search-box {
-        margin: 10px 0;
-    }
-    input[type="text"] {
-        padding: 5px;
-        width: 200px;
-        margin-right: 5px;
-    }
-    button {
-        padding: 5px 10px;
-        margin-left: 5px;
-    }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 5px; }
+    input[type="text"], select { padding: 5px; margin-right: 5px; margin-bottom: 10px; }
+    button { padding: 5px 10px; margin: 2px; }
+    .search-box { margin: 10px 0; }
+    ul { list-style: none; padding-left: 0; }
 </style>
 </head>
 <body>
@@ -47,16 +40,15 @@
 <script>
 const courseSelect = document.getElementById('courseSelect');
 const adminCourseList = document.getElementById('adminCourseList');
-const apiBase = 'http://localhost:3000'; // change if using deployment URL
-let allCourses = [];
+const apiBase = 'http://localhost:3000'; // Change to your backend URL
+let allCourses = []; // store all courses globally
 
-// Load courses for dropdown & admin list
-async function loadCourses(){
-    try{
+// Load courses from backend
+async function loadCourses() {
+    try {
         const res = await fetch(`${apiBase}/courses`);
         const courses = await res.json();
-        allCourses = courses; // store for search/filter
-
+        allCourses = courses;
         renderCourses(courses);
 
         // Populate dropdown
@@ -68,16 +60,18 @@ async function loadCourses(){
             courseSelect.appendChild(option);
         });
 
-    }catch(err){ console.error(err); }
+    } catch(err) {
+        console.error(err);
+    }
 }
 
-// Render courses list with files
-function renderCourses(courses){
+// Render course list
+function renderCourses(courses) {
     adminCourseList.innerHTML = '';
     courses.forEach(c => {
         const li = document.createElement('li');
         li.innerHTML = `
-            <strong>${c.name}</strong> 
+            <strong>${c.name}</strong>
             <button onclick="deleteCourse('${c._id}')">Delete Course</button>
             <button onclick="toggleFiles('${c.name}', '${c._id}')">View Files</button>
             <div class="search-box" id="fileSearchBox-${c._id}" style="display:none;">
@@ -89,34 +83,35 @@ function renderCourses(courses){
     });
 }
 
-// Filter courses based on search input
-function filterCourses(){
+// Filter courses
+function filterCourses() {
     const query = document.getElementById('courseSearch').value.toLowerCase();
     const filtered = allCourses.filter(c => c.name.toLowerCase().includes(query));
     renderCourses(filtered);
 }
 
-// Toggle files list
-async function toggleFiles(courseName, courseId){
+// Toggle files list for a course
+async function toggleFiles(courseName, courseId) {
     const ul = document.getElementById(`files-${courseId}`);
     const searchBox = document.getElementById(`fileSearchBox-${courseId}`);
-    if(ul.style.display === 'block'){
+    if(ul.style.display === 'block') {
         ul.style.display = 'none';
         searchBox.style.display = 'none';
         return;
     }
     ul.style.display = 'block';
     searchBox.style.display = 'block';
+    ul.innerHTML = 'Loading...';
 
     // Fetch files
     const res = await fetch(`${apiBase}/files/${courseName}`);
     const files = await res.json();
-    ul.dataset.files = JSON.stringify(files); // store original files for search
+    ul.dataset.files = JSON.stringify(files); // store for search
     renderFiles(courseId, files);
 }
 
-// Render files for a course
-function renderFiles(courseId, files){
+// Render files under a course
+function renderFiles(courseId, files) {
     const ul = document.getElementById(`files-${courseId}`);
     ul.innerHTML = '';
     files.forEach(f => {
@@ -131,26 +126,18 @@ function renderFiles(courseId, files){
 }
 
 // Filter files inside a course
-function filterFiles(courseId){
+function filterFiles(courseId) {
     const query = document.querySelector(`#fileSearchBox-${courseId} input`).value.toLowerCase();
     const files = JSON.parse(document.getElementById(`files-${courseId}`).dataset.files || '[]');
     const filtered = files.filter(f => f.title.toLowerCase().includes(query));
     renderFiles(courseId, filtered);
 }
 
-// Delete individual file
-async function deleteFile(fileId, courseId){
-    if(!confirm('Are you sure you want to delete this file?')) return;
-    const res = await fetch(`${apiBase}/admin/delete-file/${fileId}`, { method: 'DELETE' });
-    const data = await res.json();
-    alert(data.message);
-    toggleFiles(document.getElementById(`files-${courseId}`).dataset.course, courseId); // refresh file list
-}
-
 // Add course
-async function addCourse(){
+async function addCourse() {
     const name = document.getElementById('newCourse').value.trim();
     if(!name) return alert('Enter course name');
+
     const res = await fetch(`${apiBase}/admin/add-course`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -162,7 +149,7 @@ async function addCourse(){
 }
 
 // Add file via URL
-async function addFile(){
+async function addFile() {
     const title = document.getElementById('fileTitle').value.trim();
     const url = document.getElementById('fileURL').value.trim();
     const course = courseSelect.value;
@@ -178,7 +165,7 @@ async function addFile(){
 }
 
 // Upload file from laptop
-async function uploadFile(){
+async function uploadFile() {
     const file = document.getElementById('fileUpload').files[0];
     const title = document.getElementById('fileTitle').value.trim();
     const course = courseSelect.value;
@@ -195,7 +182,7 @@ async function uploadFile(){
 }
 
 // Delete course
-async function deleteCourse(id){
+async function deleteCourse(id) {
     if(!confirm('Delete this course and all its files?')) return;
     const res = await fetch(`${apiBase}/admin/delete-course/${id}`, { method: 'DELETE' });
     const data = await res.json();
@@ -203,9 +190,22 @@ async function deleteCourse(id){
     loadCourses();
 }
 
+// Delete file
+async function deleteFile(fileId, courseId) {
+    if(!confirm('Delete this file?')) return;
+    const res = await fetch(`${apiBase}/admin/delete-file/${fileId}`, { method: 'DELETE' });
+    const data = await res.json();
+    alert(data.message);
+    // Refresh files list
+    const ul = document.getElementById(`files-${courseId}`);
+    const courseName = allCourses.find(c => c._id === courseId)?.name;
+    if(courseName) toggleFiles(courseName, courseId);
+}
+
 // Initial load
 loadCourses();
 </script>
 </body>
 </html>
+
 
